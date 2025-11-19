@@ -2,12 +2,13 @@
   "name": "aeo-counterfactual-impact-lab",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "prebuild": "prisma generate",
     "build": "tsc -p .",
     "prestart": "prisma migrate deploy && npm run build",
     "start": "node dist/server.js",
