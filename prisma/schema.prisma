@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum FunnelStage {
+  TOFU
+  MOFU
+  BOFU
+}
+
+model Query {
+  id           String       @id @default(cuid())
+  text         String
+  slug         String       @unique
+  funnel_stage FunnelStage
+  priority     Int          @default(2)
+  target_url   String?
+
+  observations Observation[]
+
+  @@index([priority])
+}
+
+model Engine {
+  id      String        @id @default(cuid())
+  name    String
+  surface String
+  region  String
+  device  String
+
+  observations Observation[]
+
+  @@unique([name, surface, region, device])
+}
+
+model Run {
+  id         String        @id @default(cuid())
+  label      String?
+  started_at DateTime      @default(now())
+
+  observations Observation[]
+}
+
+model Observation {
+  id           String   @id @default(cuid())
+  run          Run      @relation(fields: [runId], references: [id])
+  runId        String
+  query        Query    @relation(fields: [queryId], references: [id])
+  queryId      String
+  engine       Engine   @relation(fields: [engineId], references: [id])
+  engineId     String
+  raw_answer   Json
+  parsed_answer String?
+  captured_at  DateTime @default(now())
+
+  score        Score?
+  counterfactuals Counterfactual[]
+
+  @@index([runId])
+  @@index([queryId, engineId])
+}
+
+model Score {
+  id                 String   @id @default(cuid())
+  observation        Observation @relation(fields: [observationId], references: [id])
+  observationId      String   @unique
+  presence_score     Int
+  prominence_score   Int
+  persuasion_score   Int
+  total_score        Int
+  summary            String
+  detected_brand_urls String[]
+  detected_competitors String[]
+}
+
+model Counterfactual {
+  id             String   @id @default(cuid())
+  observation    Observation @relation(fields: [observationId], references: [id])
+  observationId  String
+  lever          String
+  description    String
+  inclusion_after Boolean
+  reason         String
+  effort_score   Int
+  impact_score   Int
+  confidence     Float
+
+  @@index([observationId])
+}
