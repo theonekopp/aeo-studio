@@ -53,22 +53,52 @@ export async function evaluateBaseline(
   observation: Observation,
   query: Query,
   brandNames: string[],
-  model = 'openrouter/anthropic/claude-3.5-sonnet'
+  model = 'anthropic/claude-3.5-sonnet'
 ) {
   const answerText = observation.parsed_answer ?? JSON.stringify(observation.raw_answer)
+  const useMocks = process.env.USE_MOCKS === 'true'
+  if (useMocks) {
+    // Deterministic mock: hash length to spread 0-3
+    const h = (query.text.length + answerText.length) % 4
+    const presence = h
+    const prominence = (h + 1) % 4
+    const persuasion = (h + 2) % 4
+    const total_score = presence + prominence + persuasion
+    return {
+      presence_score: presence,
+      prominence_score: prominence,
+      persuasion_score: persuasion,
+      total_score,
+      summary: 'Mock evaluation summary',
+      detected_brand_urls: [],
+      detected_competitors: [],
+    }
+  }
+
   const messages = buildBaselinePrompt(query.text, brandNames, answerText)
   const result = await chatJson(model, messages, baselineSchema)
-  const total_score =
-    result.presence_score + result.prominence_score + result.persuasion_score
+  const total_score = result.presence_score + result.prominence_score + result.persuasion_score
   return { ...result, total_score }
 }
 
 export async function evaluateCounterfactuals(
   observation: Observation,
   queryText: string,
-  model = 'openrouter/anthropic/claude-3.5-sonnet'
+  model = 'anthropic/claude-3.5-sonnet'
 ) {
   const answerText = observation.parsed_answer ?? JSON.stringify(observation.raw_answer)
+  const useMocks = process.env.USE_MOCKS === 'true'
+  if (useMocks) {
+    return [1, 2, 3].map((i) => ({
+      lever: ['Entity clarity', 'Content coverage', 'UX/answerability structure'][i % 3],
+      description: `Mock suggestion ${i} for improving inclusion`,
+      inclusion_after: i % 2 === 0,
+      reason: 'Mock rationale based on observed answer',
+      effort_score: ((i + 1) % 5) + 1 > 5 ? 5 : ((i + 1) % 5) + 1,
+      impact_score: ((i + 2) % 5) + 1 > 5 ? 5 : ((i + 2) % 5) + 1,
+      confidence: 0.6 + i * 0.1 > 1 ? 0.9 : 0.6 + i * 0.1,
+    }))
+  }
   const messages = buildCounterfactualPrompt(queryText, answerText)
   const { items } = await chatJson(model, messages, cfSchema)
   return items

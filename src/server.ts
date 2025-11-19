@@ -7,6 +7,7 @@ import { queriesRouter } from './routes/queries'
 import { dataRouter } from './routes/data'
 import { jobsRouter } from './routes/jobs'
 import { basicAuth } from './middleware/basicAuth'
+import { prisma } from './db/client'
 
 const app = express()
 app.use(cors())
@@ -33,6 +34,21 @@ app.use((err: any, _req: any, res: any, _next: any) => {
 })
 
 const port = Number(process.env.PORT || 3000)
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`API listening on :${port}`)
+  // Ensure engines exist (seed) for first run
+  try {
+    const count = await prisma.engine.count()
+    if (count === 0) {
+      await prisma.engine.createMany({
+        data: [
+          { name: 'chatgpt', surface: 'direct_answer', region: 'us', device: 'desktop' },
+          { name: 'perplexity', surface: 'direct_answer', region: 'us', device: 'desktop' },
+        ],
+      })
+      console.log('Seeded default engines: chatgpt, perplexity')
+    }
+  } catch (e) {
+    console.error('Seeding engines failed', e)
+  }
 })

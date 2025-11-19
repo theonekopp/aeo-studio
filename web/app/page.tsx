@@ -13,6 +13,8 @@ export default function RunsPage() {
   const [selected, setSelected] = useState<string | null>(null)
   const [matrix, setMatrix] = useState<MatrixRow[]>([])
   const [busy, setBusy] = useState(false)
+  const [newQuery, setNewQuery] = useState('')
+  const [adding, setAdding] = useState(false)
 
   useEffect(() => { setPwd(localStorage.getItem('aeo_pwd') || '') }, [])
 
@@ -49,12 +51,26 @@ export default function RunsPage() {
     } finally { setBusy(false) }
   }
 
+  async function addQuery() {
+    if (!pwd || !newQuery.trim()) return
+    setAdding(true)
+    try {
+      await fetch(base + '/queries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Basic ' + btoa('user:' + pwd) },
+        body: JSON.stringify({ text: newQuery.trim(), funnel_stage: 'TOFU' }),
+      })
+      setNewQuery('')
+      alert('Query added. Start a run to capture.')
+    } finally { setAdding(false) }
+  }
+
   const queries = useMemo(() => Array.from(new Set(matrix.map(m => JSON.stringify(m.query)))).map(s => JSON.parse(s)), [matrix])
   const engines = useMemo(() => Array.from(new Set(matrix.map(m => JSON.stringify(m.engine)))).map(s => JSON.parse(s)), [matrix])
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <button onClick={startRun} disabled={busy} style={{ padding: '6px 10px' }}>{busy ? 'Running…' : 'Start New Run'}</button>
         <span style={{ opacity: 0.7 }}>or select an existing run:</span>
         <select value={selected ?? ''} onChange={(e) => setSelected(e.target.value)}>
@@ -63,6 +79,9 @@ export default function RunsPage() {
             <option key={r.id} value={r.id}>{r.label || r.started_at}</option>
           ))}
         </select>
+        <span style={{ opacity: 0.7, marginLeft: 12 }}>Add a query:</span>
+        <input value={newQuery} onChange={(e) => setNewQuery(e.target.value)} placeholder="e.g., best clinics in Austin" style={{ padding: 6, minWidth: 240 }} />
+        <button onClick={addQuery} disabled={adding || !newQuery.trim()} style={{ padding: '6px 10px' }}>{adding ? 'Adding…' : 'Add'}</button>
       </div>
 
       {selected && (
