@@ -53,12 +53,19 @@ const cfItem = z.object({
 
 export type Counterfactual = z.infer<typeof cfItem>
 
-// Accept either { items: Counterfactual[] } or legacy keys or bare array
-const cfResponseSchema = z.union([
+// Accept various shapes and normalize to { items: Counterfactual[] }
+const cfAnySchema = z.union([
   z.object({ items: z.array(cfItem).min(1) }),
-  z.object({ counterfactuals: z.array(cfItem).min(1) }).transform((o) => ({ items: o.counterfactuals })),
-  z.array(cfItem).min(1).transform((arr) => ({ items: arr })),
+  z.object({ counterfactuals: z.array(cfItem).min(1) }),
+  z.array(cfItem).min(1),
 ])
+
+const cfNormalizedSchema = cfAnySchema.transform((val) => {
+  if (Array.isArray(val)) return { items: val }
+  if ('items' in val) return { items: (val as any).items as z.infer<typeof cfItem>[] }
+  if ('counterfactuals' in val) return { items: (val as any).counterfactuals as z.infer<typeof cfItem>[] }
+  return { items: [] as z.infer<typeof cfItem>[] }
+})
 
 function buildBaselinePrompt(query: string, brandNames: string[], answerText: string) {
   const system = `You are an evaluator that scores brand inclusion in answer-engine outputs.
@@ -133,8 +140,7 @@ export async function evaluateCounterfactuals(
     }))
   }
   const messages = buildCounterfactualPrompt(queryText, answerText)
-  const res = await chatJson(model, messages, cfResponseSchema, { retries: 2 })
-  const items = Array.isArray(res) ? res : res.items
+  const { items } = await chatJson(model, messages, cfNormalizedSchema, { retries: 2 })
   // If model returned fewer than 3 items, just return what's available; worker already slices to 3
   return items
 }
