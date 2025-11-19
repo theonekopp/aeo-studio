@@ -42,7 +42,7 @@ The API listens on `:3000` by default. Railway sets `PORT` automatically.
 
 ### Web UI (Next.js)
 
-Located in `web/`.
+Located in `web/`. Deploy as a separate Railway service pointing to the `web` subdirectory (Root Directory setting) or run locally.
 
 Local run:
 
@@ -52,7 +52,13 @@ npm install
 npm run dev
 ```
 
-Set `NEXT_PUBLIC_API_BASE` in `web/.env` if your API isn’t on the same origin (e.g., `http://localhost:3000`).
+Set `NEXT_PUBLIC_API_BASE` in `web/.env` to your API URL if the UI is on a different origin (e.g., `http://localhost:3000` for local dev, or `https://<api>.up.railway.app` in production).
+
+Railway (monorepo) steps:
+- Add a new service from the same repo
+- In service settings, set Root Directory to `web`
+- Add env var `NEXT_PUBLIC_API_BASE` pointing to your API service URL
+- Deploy — Next will bind to `PORT` automatically
 Visit `/login` to save the API password, then use the Runs dashboard.
 
 ### Endpoints (subset)
