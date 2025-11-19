@@ -1,10 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async rewrites() {
-    const target = process.env.API_BASE_INTERNAL
-    if (!target) return []
-    // Proxy browser calls to /api/* to the API service from the server.
-    return [{ source: '/api/:path*', destination: `${target}/:path*` }]
+    const raw = process.env.API_BASE_INTERNAL
+    if (!raw) return []
+    // Ensure absolute URL (http/https) and no trailing slash
+    const hasProto = /^https?:\/\//i.test(raw)
+    const base = (hasProto ? raw : `http://${raw}`).replace(/\/$/, '')
+    return [{ source: '/api/:path*', destination: `${base}/:path*` }]
   },
 }
 
