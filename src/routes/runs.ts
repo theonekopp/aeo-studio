@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../db/client'
-import { captureRun, scoreRun, counterfactualRun } from '../workers/runWorkers'
+import { captureRun, scoreRun, counterfactualRun, brandDeltaRun } from '../workers/runWorkers'
 
 export const runsRouter = Router()
 
@@ -22,6 +22,7 @@ runsRouter.post('/start', async (req, res, next) => {
     await captureRun(run.id)
     await scoreRun(run.id)
     await counterfactualRun(run.id)
+    await brandDeltaRun(run.id)
     res.json({ id: run.id })
   } catch (e) { next(e) }
 })

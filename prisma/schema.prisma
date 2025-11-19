@@ -92,3 +92,15 @@ model Counterfactual {
 
   @@index([observationId])
 }
+
+model BrandDelta {
+  id                   String   @id @default(cuid())
+  observation          Observation @relation(fields: [observationId], references: [id])
+  observationId        String
+  brand_missing_signals Json
+  actionable_levers     Json
+  priority_actions      Json
+  created_at            DateTime @default(now())
+
+  @@index([observationId])
+}

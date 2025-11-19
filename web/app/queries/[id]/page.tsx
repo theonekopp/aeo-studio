@@ -8,6 +8,7 @@ type Query = { id: string; text: string }
 type Observation = { id: string; queryId: string; engineId: string; parsed_answer?: string | null; score?: any }
 type Engine = { id: string; name: string }
 type Counterfactual = { lever: string; description: string; inclusion_after: boolean; effort_score: number; impact_score: number; confidence: number }
+type BrandDelta = { brand_missing_signals: string[]; actionable_levers: { lever: string; recommendation: string; effort_score: number; impact_score: number; confidence: number }[]; priority_actions: string[] }
 
 export default function QueryDetail({ params }: { params: { id: string } }) {
   const [pwd, setPwd] = useState('')
@@ -16,6 +17,7 @@ export default function QueryDetail({ params }: { params: { id: string } }) {
   const [observations, setObservations] = useState<Observation[]>([])
   const [engines, setEngines] = useState<Record<string, Engine>>({})
   const [cfs, setCfs] = useState<Record<string, Counterfactual[]>>({})
+  const [deltas, setDeltas] = useState<Record<string, BrandDelta[]>>({})
 
   useEffect(() => { setPwd(localStorage.getItem('aeo_pwd') || '') }, [])
 
@@ -43,9 +45,13 @@ export default function QueryDetail({ params }: { params: { id: string } }) {
         items.forEach((o: any) => { if (o.engine) engs[o.engine.id] = o.engine })
         setEngines(engs)
         filtered.forEach(async (o: any) => {
-          const res = await fetch(base + `/counterfactuals?observation_id=${o.id}`, { headers: { Authorization: 'Basic ' + btoa('user:' + pwd) } })
-          const data = await res.json()
-          setCfs(prev => ({ ...prev, [o.id]: data }))
+          const [resCf, resDelta] = await Promise.all([
+            fetch(base + `/counterfactuals?observation_id=${o.id}`, { headers: { Authorization: 'Basic ' + btoa('user:' + pwd) } }),
+            fetch(base + `/brand-deltas?observation_id=${o.id}`, { headers: { Authorization: 'Basic ' + btoa('user:' + pwd) } }),
+          ])
+          const [dataCf, dataDelta] = await Promise.all([resCf.json(), resDelta.json()])
+          setCfs(prev => ({ ...prev, [o.id]: dataCf }))
+          setDeltas(prev => ({ ...prev, [o.id]: dataDelta }))
         })
       })
   }, [pwd, runId, params.id])
@@ -56,7 +62,8 @@ export default function QueryDetail({ params }: { params: { id: string } }) {
     answer: o.parsed_answer || '(no parsed answer)',
     score: o.score?.total_score ?? null,
     cf: cfs[o.id] || [],
-  })), [observations, engines, cfs])
+    deltas: deltas[o.id] || [],
+  })), [observations, engines, cfs, deltas])
 
   return (
     <div>
@@ -77,6 +84,41 @@ export default function QueryDetail({ params }: { params: { id: string } }) {
                 </li>
               ))}
             </ul>
+          </div>
+          <div>
+            <p><strong>Brand AEO Actions:</strong></p>
+            {(r.deltas[0]) ? (
+              <div>
+                {r.deltas[0].brand_missing_signals?.length > 0 && (
+                  <div>
+                    <p>Missing signals:</p>
+                    <ul>
+                      {r.deltas[0].brand_missing_signals.map((s, i) => <li key={i}>{s}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {r.deltas[0].actionable_levers?.length > 0 && (
+                  <div>
+                    <p>Actionable levers:</p>
+                    <ul>
+                      {r.deltas[0].actionable_levers.map((a, i) => (
+                        <li key={i}><em>{a.lever}</em>: {a.recommendation} — impact {a.impact_score}/5, effort {a.effort_score}/5, conf {a.confidence}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {r.deltas[0].priority_actions?.length > 0 && (
+                  <div>
+                    <p>Priority actions:</p>
+                    <ol>
+                      {r.deltas[0].priority_actions.map((p, i) => <li key={i}>{p}</li>)}
+                    </ol>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p style={{ opacity: 0.7 }}>(no brand actions yet)</p>
+            )}
           </div>
         </div>
       ))}

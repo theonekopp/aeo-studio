@@ -20,3 +20,12 @@ dataRouter.get('/counterfactuals', async (req, res, next) => {
     res.json(items)
   } catch (e) { next(e) }
 })
+
+dataRouter.get('/brand-deltas', async (req, res, next) => {
+  try {
+    const observation_id = req.query.observation_id as string | undefined
+    const where = observation_id ? { observationId: observation_id } : {}
+    const items = await prisma.brandDelta.findMany({ where })
+    res.json(items)
+  } catch (e) { next(e) }
+})

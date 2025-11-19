@@ -150,3 +150,75 @@ export async function evaluateCounterfactuals(
   // If model returned fewer than 3 items, just return what's available; worker already slices to 3
   return items
 }
+
+// Brand Delta Extraction
+const brandDeltaSchema = z.object({
+  brand_missing_signals: z.array(z.string()).default([]),
+  actionable_levers: z.array(z.object({
+    lever: z.string(),
+    recommendation: z.string(),
+    effort_score: z.any().transform((v) => toIntRange(v, 1, 5)),
+    impact_score: z.any().transform((v) => toIntRange(v, 1, 5)),
+    confidence: z.any().transform(toConfidence),
+  })).default([]),
+  priority_actions: z.array(z.string()).default([]),
+})
+
+function buildBrandDeltaPrompt(
+  brandName: string,
+  query: string,
+  baselineAnswer: string,
+  cfItems: Counterfactual[]
+) {
+  const allowed = [
+    'Content coverage',
+    'Entity clarity',
+    'Evidence/authority',
+    'Geo specificity',
+    'Comparison/decision support',
+    'UX/answerability structure',
+  ]
+  const system = `You are an AEO expert.
+Given a baseline answer (brand possibly excluded) and a set of counterfactual levers that would lead to inclusion, produce ONLY valid JSON (no markdown) describing the brand-specific deltas required.
+Recommend only SEO/AEO/content changes (no pricing/ops/availability changes). No trailing commas.`
+  const user = `Brand: ${brandName}
+Query: ${query}
+Allowed levers: ${allowed.join(', ')}
+
+Baseline answer text:
+${baselineAnswer}
+
+Counterfactual levers (predicted to drive inclusion):
+${cfItems.map((c, i) => `${i + 1}. [${c.lever}] ${c.description} (impact ${c.impact_score}/5, effort ${c.effort_score}/5)`).join('\n')}
+
+Return JSON with keys brand_missing_signals (string[]), actionable_levers (array of { lever, recommendation, effort_score, impact_score, confidence }), and priority_actions (string[]).`
+  return [
+    { role: 'system' as const, content: system },
+    { role: 'user' as const, content: user },
+  ]
+}
+
+export async function evaluateBrandDelta(
+  brandName: string,
+  queryText: string,
+  baselineAnswer: string,
+  cfItems: Counterfactual[],
+  model = process.env.EVALUATOR_MODEL || 'openai/gpt-4o-mini'
+) {
+  const useMocks = process.env.USE_MOCKS === 'true'
+  if (useMocks) {
+    return {
+      brand_missing_signals: [`Structured FAQ addressing insurance for ${brandName}`],
+      actionable_levers: [
+        { lever: 'Entity clarity', recommendation: `Clarify ${brandName} insurance acceptance in a Q&A block`, effort_score: 2, impact_score: 4, confidence: 0.7 },
+        { lever: 'Comparison/decision support', recommendation: `Add provider comparison table including ${brandName}`, effort_score: 3, impact_score: 5, confidence: 0.6 },
+      ],
+      priority_actions: [
+        `Publish decision-support comparison including ${brandName}`,
+        `Add structured Q&A on insurance and locations for ${brandName}`,
+      ],
+    }
+  }
+  const messages = buildBrandDeltaPrompt(brandName, queryText, baselineAnswer, cfItems)
+  return await chatJson(model, messages, brandDeltaSchema, { retries: 2 })
+}

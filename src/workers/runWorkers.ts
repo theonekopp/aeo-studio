@@ -1,5 +1,5 @@
 import { prisma } from '../db/client'
-import { evaluateBaseline, evaluateCounterfactuals } from '../services/evaluator'
+import { evaluateBaseline, evaluateCounterfactuals, evaluateBrandDelta } from '../services/evaluator'
 import { logger } from '../logger'
 import { chatText } from '../services/openrouter'
 
@@ -80,6 +80,32 @@ export async function counterfactualRun(runId: string) {
       }
     } catch (err) {
       logger.error({ err, obsId: obs.id }, 'counterfactual failure')
+    }
+  }
+}
+
+export async function brandDeltaRun(runId: string) {
+  const brandNames = (process.env.BRAND_NAMES || '').split(',').map(s => s.trim()).filter(Boolean)
+  const brandName = brandNames[0] || 'Our Brand'
+  const observations = await prisma.observation.findMany({ where: { runId }, include: { counterfactuals: true } })
+  for (const obs of observations) {
+    try {
+      const query = await prisma.query.findUnique({ where: { id: obs.queryId } })
+      if (!query) continue
+      const cfItems = await prisma.counterfactual.findMany({ where: { observationId: obs.id } })
+      if (cfItems.length === 0) continue
+      const baselineAnswer = obs.parsed_answer ?? JSON.stringify(obs.raw_answer)
+      const delta = await evaluateBrandDelta(brandName, query.text, baselineAnswer, cfItems as any)
+      await prisma.brandDelta.create({
+        data: {
+          observationId: obs.id,
+          brand_missing_signals: delta.brand_missing_signals as any,
+          actionable_levers: delta.actionable_levers as any,
+          priority_actions: delta.priority_actions as any,
+        },
+      })
+    } catch (err) {
+      logger.error({ err, obsId: obs.id }, 'brand_delta failure')
     }
   }
 }

@@ -80,6 +80,7 @@ Visit `/login` to save the API password, then use the Runs dashboard.
 - `POST /queries` — create query `{ text, funnel_stage, priority?, target_url? }`
 - `GET /observations?run_id=...`
 - `GET /counterfactuals?observation_id=...`
+- `GET /brand-deltas?observation_id=...`
 - `POST /jobs/capture-run` — run capture phase only
 - `POST /jobs/score-run` — run scoring phase only
 - `POST /jobs/counterfactual-run` — run counterfactuals phase only
