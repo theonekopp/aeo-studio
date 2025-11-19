@@ -52,12 +52,21 @@ npm install
 npm run dev
 ```
 
-Set `NEXT_PUBLIC_API_BASE` in `web/.env` to your API URL if the UI is on a different origin (e.g., `http://localhost:3000` for local dev, or `https://<api>.up.railway.app` in production).
+You have two ways to connect the web UI to the API:
+
+- Server-side proxy (works with Railway internal URL):
+  - In the web service, set `API_BASE_INTERNAL` to your API internal URL (e.g., `https://<api>.railway.internal`).
+  - The web app proxies browser requests from `/api/*` to the API.
+  - No `NEXT_PUBLIC_API_BASE` needed.
+
+- Direct browser calls (requires public API URL):
+  - In the web service, set `NEXT_PUBLIC_API_BASE` to your public API URL (e.g., `https://<api>.up.railway.app`).
+  - Requests go straight from the browser to the API.
 
 Railway (monorepo) steps:
 - Add a new service from the same repo
 - In service settings, set Root Directory to `web`
-- Add env var `NEXT_PUBLIC_API_BASE` pointing to your API service URL
+- Choose one of the env approaches above
 - Deploy — Next will bind to `PORT` automatically
 Visit `/login` to save the API password, then use the Runs dashboard.
 

@@ -13,7 +13,7 @@ export default function LoginPage() {
 
   async function check() {
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE || ''
+      const base = process.env.NEXT_PUBLIC_API_BASE || '/api'
       const res = await fetch(base + '/health', {
         headers: { Authorization: 'Basic ' + btoa('user:' + pwd) },
       })
@@ -41,4 +41,3 @@ export default function LoginPage() {
     </div>
   )
 }
-

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 type Run = { id: string; label: string | null; started_at: string }
 type MatrixRow = { query: { id: string; text: string }, engine: { id: string; name: string }, total_score: number | null }
 
-const base = process.env.NEXT_PUBLIC_API_BASE || ''
+const base = process.env.NEXT_PUBLIC_API_BASE || '/api'
 
 export default function RunsPage() {
   const [pwd, setPwd] = useState('')
@@ -104,4 +104,3 @@ export default function RunsPage() {
     </div>
   )
 }
-

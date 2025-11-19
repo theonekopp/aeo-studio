@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
-const base = process.env.NEXT_PUBLIC_API_BASE || ''
+const base = process.env.NEXT_PUBLIC_API_BASE || '/api'
 
 type Query = { id: string; text: string }
 type Observation = { id: string; queryId: string; engineId: string; parsed_answer?: string | null; score?: any }
@@ -83,4 +83,3 @@ export default function QueryDetail({ params }: { params: { id: string } }) {
     </div>
   )
 }
-
