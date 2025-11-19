@@ -13,19 +13,52 @@ const baselineSchema = z.object({
 
 export type BaselineScore = z.infer<typeof baselineSchema>
 
+function toBool(v: unknown): boolean {
+  if (typeof v === 'boolean') return v
+  if (typeof v === 'number') return v !== 0
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase()
+    return s === 'true' || s === 'yes' || s === 'y' || s === '1'
+  }
+  return false
+}
+
+function toIntRange(v: unknown, min: number, max: number): number {
+  let n = typeof v === 'number' ? v : parseFloat(String(v))
+  if (!Number.isFinite(n)) n = min
+  n = Math.round(n)
+  if (n < min) n = min
+  if (n > max) n = max
+  return n
+}
+
+function toConfidence(v: unknown): number {
+  let n = typeof v === 'number' ? v : parseFloat(String(v))
+  if (!Number.isFinite(n)) n = 0.7
+  if (n > 1 && n <= 100) n = n / 100
+  if (n < 0) n = 0
+  if (n > 1) n = 1
+  return n
+}
+
 const cfItem = z.object({
   lever: z.string(),
   description: z.string(),
-  inclusion_after: z.boolean(),
+  inclusion_after: z.any().transform(toBool),
   reason: z.string(),
-  effort_score: z.number().int().min(1).max(5),
-  impact_score: z.number().int().min(1).max(5),
-  confidence: z.number().min(0).max(1),
+  effort_score: z.any().transform((v) => toIntRange(v, 1, 5)),
+  impact_score: z.any().transform((v) => toIntRange(v, 1, 5)),
+  confidence: z.any().transform(toConfidence),
 })
 
 export type Counterfactual = z.infer<typeof cfItem>
 
-const cfSchema = z.object({ items: z.array(cfItem).min(3) })
+// Accept either { items: Counterfactual[] } or legacy keys or bare array
+const cfResponseSchema = z.union([
+  z.object({ items: z.array(cfItem).min(1) }),
+  z.object({ counterfactuals: z.array(cfItem).min(1) }).transform((o) => ({ items: o.counterfactuals })),
+  z.array(cfItem).min(1).transform((arr) => ({ items: arr })),
+])
 
 function buildBaselinePrompt(query: string, brandNames: string[], answerText: string) {
   const system = `You are an evaluator that scores brand inclusion in answer-engine outputs.
@@ -41,7 +74,7 @@ Scores are integers 0-3 with well-defined rubric. Be deterministic. No trailing 
 function buildCounterfactualPrompt(query: string, answerText: string) {
   const system = `You are an evaluator that tests only SEO/AEO-movable levers.
 Allowed levers: Content coverage, Entity clarity, Evidence/authority, Geo specificity, Comparison/decision support, UX/answerability structure.
-Return ONLY valid JSON (no markdown) with { items: Counterfactual[] } of 3 items, each including lever, description, inclusion_after, reason, effort_score (1-5), impact_score (1-5), confidence (0-1). No trailing commas.`
+Return ONLY valid JSON (no markdown) with the shape: { "items": [ { "lever": string, "description": string, "inclusion_after": boolean, "reason": string, "effort_score": 1-5, "impact_score": 1-5, "confidence": 0-1 }, ... ] } with exactly 3 items. No trailing commas.`
   const user = `Query: ${query}\nAnswer text:\n${answerText}`
   return [
     { role: 'system' as const, content: system },
@@ -100,6 +133,8 @@ export async function evaluateCounterfactuals(
     }))
   }
   const messages = buildCounterfactualPrompt(queryText, answerText)
-  const { items } = await chatJson(model, messages, cfSchema, { retries: 2 })
+  const res = await chatJson(model, messages, cfResponseSchema, { retries: 2 })
+  const items = Array.isArray(res) ? res : res.items
+  // If model returned fewer than 3 items, just return what's available; worker already slices to 3
   return items
 }
