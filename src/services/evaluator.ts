@@ -140,7 +140,13 @@ export async function evaluateCounterfactuals(
     }))
   }
   const messages = buildCounterfactualPrompt(queryText, answerText)
-  const { items } = await chatJson(model, messages, cfNormalizedSchema, { retries: 2 })
+  const res = await chatJson<{ items: z.infer<typeof cfItem>[] }>(
+    model,
+    messages,
+    cfNormalizedSchema as unknown as z.ZodType<{ items: z.infer<typeof cfItem>[] }>,
+    { retries: 2 }
+  )
+  const { items } = res
   // If model returned fewer than 3 items, just return what's available; worker already slices to 3
   return items
 }
