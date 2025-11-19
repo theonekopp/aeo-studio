@@ -29,8 +29,8 @@ const cfSchema = z.object({ items: z.array(cfItem).min(3) })
 
 function buildBaselinePrompt(query: string, brandNames: string[], answerText: string) {
   const system = `You are an evaluator that scores brand inclusion in answer-engine outputs.
-Return strict JSON with fields: presence_score, prominence_score, persuasion_score, summary, detected_brand_urls, detected_competitors.
-Scores are integers 0-3 with well-defined rubric. Be deterministic.`
+Return ONLY valid JSON (no markdown, no commentary) with fields: presence_score, prominence_score, persuasion_score, summary, detected_brand_urls, detected_competitors.
+Scores are integers 0-3 with well-defined rubric. Be deterministic. No trailing commas.`
   const user = `Query: ${query}\nBrands of interest: ${brandNames.join(', ')}\nAnswer text:\n${answerText}`
   return [
     { role: 'system' as const, content: system },
@@ -41,7 +41,7 @@ Scores are integers 0-3 with well-defined rubric. Be deterministic.`
 function buildCounterfactualPrompt(query: string, answerText: string) {
   const system = `You are an evaluator that tests only SEO/AEO-movable levers.
 Allowed levers: Content coverage, Entity clarity, Evidence/authority, Geo specificity, Comparison/decision support, UX/answerability structure.
-Return JSON with { items: Counterfactual[] } with 3 items, each including lever, description, inclusion_after, reason, effort_score (1-5), impact_score (1-5), confidence (0-1).`
+Return ONLY valid JSON (no markdown) with { items: Counterfactual[] } of 3 items, each including lever, description, inclusion_after, reason, effort_score (1-5), impact_score (1-5), confidence (0-1). No trailing commas.`
   const user = `Query: ${query}\nAnswer text:\n${answerText}`
   return [
     { role: 'system' as const, content: system },
@@ -53,7 +53,7 @@ export async function evaluateBaseline(
   observation: Observation,
   query: Query,
   brandNames: string[],
-  model = 'anthropic/claude-3.5-sonnet'
+  model = process.env.EVALUATOR_MODEL || 'openai/gpt-4o-mini'
 ) {
   const answerText = observation.parsed_answer ?? JSON.stringify(observation.raw_answer)
   const useMocks = process.env.USE_MOCKS === 'true'
@@ -76,7 +76,7 @@ export async function evaluateBaseline(
   }
 
   const messages = buildBaselinePrompt(query.text, brandNames, answerText)
-  const result = await chatJson(model, messages, baselineSchema)
+  const result = await chatJson(model, messages, baselineSchema, { retries: 2 })
   const total_score = result.presence_score + result.prominence_score + result.persuasion_score
   return { ...result, total_score }
 }
@@ -84,7 +84,7 @@ export async function evaluateBaseline(
 export async function evaluateCounterfactuals(
   observation: Observation,
   queryText: string,
-  model = 'anthropic/claude-3.5-sonnet'
+  model = process.env.EVALUATOR_MODEL || 'openai/gpt-4o-mini'
 ) {
   const answerText = observation.parsed_answer ?? JSON.stringify(observation.raw_answer)
   const useMocks = process.env.USE_MOCKS === 'true'
@@ -100,6 +100,6 @@ export async function evaluateCounterfactuals(
     }))
   }
   const messages = buildCounterfactualPrompt(queryText, answerText)
-  const { items } = await chatJson(model, messages, cfSchema)
+  const { items } = await chatJson(model, messages, cfSchema, { retries: 2 })
   return items
 }

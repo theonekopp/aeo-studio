@@ -26,6 +26,7 @@ Copy `.env.example` to `.env` and set values:
 - `CHATGPT_MODEL` — OpenRouter model for ChatGPT engine (default `openai/gpt-4o-mini`)
 - `PERPLEXITY_MODEL` — OpenRouter model for Perplexity engine (default `perplexity/sonar-small-online`)
 - `DEFAULT_ANSWER_MODEL` — fallback model for unknown engines
+- `EVALUATOR_MODEL` — model for scoring + counterfactual JSON outputs (default `openai/gpt-4o-mini`)
 
 ### Setup
 
