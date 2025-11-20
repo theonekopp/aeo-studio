@@ -44,7 +44,7 @@ export async function chatJson<T>(
   model: string,
   messages: ChatMessage[],
   schema: z.ZodType<T>,
-  opts?: { temperature?: number; max_tokens?: number; retries?: number }
+  opts?: { temperature?: number; max_tokens?: number; retries?: number; responseType?: 'object' | 'json' }
 ): Promise<T> {
   const useMocks = process.env.USE_MOCKS === 'true'
   if (useMocks) {
@@ -73,7 +73,8 @@ export async function chatJson<T>(
           temperature: opts?.temperature ?? 0,
           max_tokens: opts?.max_tokens ?? 800,
           messages,
-          response_format: { type: 'json_object' },
+          // Only force json_object when callers expect an object. Arrays may be rejected otherwise.
+          ...(opts?.responseType === 'object' ? { response_format: { type: 'json_object' } } : {}),
         }),
       })
 

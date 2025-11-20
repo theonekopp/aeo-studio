@@ -116,7 +116,7 @@ export async function evaluateBaseline(
   }
 
   const messages = buildBaselinePrompt(query.text, brandNames, answerText)
-  const result = await chatJson(model, messages, baselineSchema, { retries: 2 })
+  const result = await chatJson(model, messages, baselineSchema, { retries: 2, responseType: 'object' })
   const total_score = result.presence_score + result.prominence_score + result.persuasion_score
   return { ...result, total_score }
 }
@@ -144,7 +144,7 @@ export async function evaluateCounterfactuals(
     model,
     messages,
     cfNormalizedSchema as unknown as z.ZodType<{ items: z.infer<typeof cfItem>[] }>,
-    { retries: 2 }
+    { retries: 2, responseType: 'object' }
   )
   const { items } = res
   // If model returned fewer than 3 items, just return what's available; worker already slices to 3
@@ -187,7 +187,7 @@ export async function evaluateSurfaceQuestions(
     ]
   }
   const messages = buildSurfaceQuestionsPrompt(queryText, baselineAnswer)
-  return await chatJson(model, messages, surfaceQuestionsSchema, { retries: 2 })
+  return await chatJson(model, messages, surfaceQuestionsSchema, { retries: 2, responseType: 'json' })
 }
 
 // Brand opportunity mining (Step 4)
@@ -279,7 +279,7 @@ export async function evaluateBrandOpportunities(
     }
   }
   const messages = buildBrandOpportunityPrompt(brandName, queryText, baselineAnswer, expandedQuestions, expandedAnswers)
-  return await chatJson(model, messages, brandOpportunitySchema, { retries: 2 })
+  return await chatJson(model, messages, brandOpportunitySchema, { retries: 2, responseType: 'object' })
 }
 
 // Brand Delta Extraction
@@ -351,5 +351,5 @@ export async function evaluateBrandDelta(
     }
   }
   const messages = buildBrandDeltaPrompt(brandName, queryText, baselineAnswer, cfItems)
-  return await chatJson(model, messages, brandDeltaSchema, { retries: 2 })
+  return await chatJson(model, messages, brandDeltaSchema, { retries: 2, responseType: 'object' })
 }
