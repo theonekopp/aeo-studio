@@ -61,6 +61,8 @@ model Observation {
   score        Score?
   counterfactuals Counterfactual[]
   brandDeltas    BrandDelta[]
+  expandedQuestions ExpandedQuestion[]
+  brandOpportunities BrandOpportunityAction[]
 
   @@index([runId])
   @@index([queryId, engineId])
@@ -98,6 +100,43 @@ model BrandDelta {
   id                   String   @id @default(cuid())
   observation          Observation @relation(fields: [observationId], references: [id])
   observationId        String
+  brand_missing_signals Json
+  actionable_levers     Json
+  priority_actions      Json
+  created_at            DateTime @default(now())
+
+  @@index([observationId])
+}
+
+model ExpandedQuestion {
+  id             String   @id @default(cuid())
+  observation    Observation @relation(fields: [observationId], references: [id])
+  observationId  String
+  question_text  String
+  created_at     DateTime @default(now())
+
+  expandedAnswers ExpandedAnswer[]
+
+  @@index([observationId])
+}
+
+model ExpandedAnswer {
+  id                  String   @id @default(cuid())
+  expandedQuestion    ExpandedQuestion @relation(fields: [expandedQuestionId], references: [id])
+  expandedQuestionId  String
+  engine              Engine   @relation(fields: [engineId], references: [id])
+  engineId            String
+  raw_answer          Json
+  parsed_answer       String?
+  captured_at         DateTime @default(now())
+
+  @@index([expandedQuestionId])
+}
+
+model BrandOpportunityAction {
+  id                    String   @id @default(cuid())
+  observation           Observation @relation(fields: [observationId], references: [id])
+  observationId         String
   brand_missing_signals Json
   actionable_levers     Json
   priority_actions      Json

@@ -29,3 +29,30 @@ dataRouter.get('/brand-deltas', async (req, res, next) => {
     res.json(items)
   } catch (e) { next(e) }
 })
+
+dataRouter.get('/expanded-questions', async (req, res, next) => {
+  try {
+    const observation_id = req.query.observation_id as string | undefined
+    const where = observation_id ? { observationId: observation_id } : {}
+    const items = await prisma.expandedQuestion.findMany({ where })
+    res.json(items)
+  } catch (e) { next(e) }
+})
+
+dataRouter.get('/expanded-answers', async (req, res, next) => {
+  try {
+    const expanded_question_id = req.query.expanded_question_id as string | undefined
+    const where = expanded_question_id ? { expandedQuestionId: expanded_question_id } : {}
+    const items = await prisma.expandedAnswer.findMany({ where })
+    res.json(items)
+  } catch (e) { next(e) }
+})
+
+dataRouter.get('/brand-opportunities', async (req, res, next) => {
+  try {
+    const observation_id = req.query.observation_id as string | undefined
+    const where = observation_id ? { observationId: observation_id } : {}
+    const items = await prisma.brandOpportunityAction.findMany({ where })
+    res.json(items)
+  } catch (e) { next(e) }
+})

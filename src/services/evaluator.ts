@@ -151,6 +151,137 @@ export async function evaluateCounterfactuals(
   return items
 }
 
+// Surface expansion (Step 2)
+const surfaceQuestionsSchema = z.array(z.string()).min(3).max(5)
+
+function buildSurfaceQuestionsPrompt(query: string, baselineAnswer: string) {
+  const system = `You are a semantic expansion engine.
+Given an original user query and its answer, your job is to generate 3–5 follow-up questions that expand the semantic surface area of the query.
+
+Your follow-up questions must:
+- Reveal latent attributes, criteria, and entities relevant to the original query
+- Expose ranking logic, quality signals, and provider comparisons
+- Surface entities an answer engine would consider authoritative
+- Remain within the same topic domain (no drifting)
+
+Do NOT generate questions that ask directly about the target brand.
+Do NOT generate yes/no questions.`
+  const user = `Original query:\n${query}\n\nAnswer engine response:\n${baselineAnswer}\n\nGenerate 3–5 follow-up questions.\nReturn ONLY a JSON list of strings.`
+  return [
+    { role: 'system' as const, content: system },
+    { role: 'user' as const, content: user },
+  ]
+}
+
+export async function evaluateSurfaceQuestions(
+  queryText: string,
+  baselineAnswer: string,
+  model = process.env.EVALUATOR_MODEL || 'openai/gpt-4o-mini'
+) {
+  const useMocks = process.env.USE_MOCKS === 'true'
+  if (useMocks) {
+    return [
+      `What criteria define top providers for ${queryText}?`,
+      `Which authority sources validate provider quality for ${queryText}?`,
+      `How do insurance and locations affect provider eligibility for ${queryText}?`,
+    ]
+  }
+  const messages = buildSurfaceQuestionsPrompt(queryText, baselineAnswer)
+  return await chatJson(model, messages, surfaceQuestionsSchema, { retries: 2 })
+}
+
+// Brand opportunity mining (Step 4)
+const brandOpportunitySchema = z.object({
+  brand_missing_signals: z.array(z.string()).default([]),
+  actionable_levers: z.array(z.object({
+    lever: z.string(),
+    recommendation: z.string(),
+    effort_score: z.any().transform((v) => toIntRange(v, 1, 5)),
+    impact_score: z.any().transform((v) => toIntRange(v, 1, 5)),
+    confidence: z.any().transform(toConfidence),
+  })).default([]),
+  priority_actions: z.array(z.string()).default([]),
+})
+
+function buildBrandOpportunityPrompt(
+  brandName: string,
+  query: string,
+  baselineAnswer: string,
+  expandedQuestions: string[],
+  expandedAnswers: string[]
+) {
+  const system = `You are an AEO (Answer Engine Optimization) diagnostic model.
+
+Your goal is to analyze:
+1. The original query and answer
+2. A set of expanded follow-up questions
+3. The answers to those questions
+
+From these, determine:
+- Why the target brand was not included
+- What brand-specific signals are missing
+- What SEO/AEO-controllable changes would most increase inclusion in future answers
+
+CRITICAL RULES:
+- Recommend ONLY levers that an SEO/AEO/content practitioner can control.
+- You may NOT propose product/ops changes (e.g., pricing, availability, new states, modalities, appointment times).
+- Focus on brand signals, content coverage, entity clarity, authority, comparisons, geo specificity, and UX clarity.
+- Be specific to the target brand.`
+  const user = `Target brand: ${brandName}
+
+Original query: ${query}
+
+Original answer:
+${baselineAnswer}
+
+Expanded follow-up questions:
+${expandedQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
+
+Expanded answers:
+${expandedAnswers.map((a, i) => `Q${i + 1}: ${a}`).join('\n\n')}
+
+Using this full surface area:
+1. Identify the missing brand signals preventing inclusion.
+2. Generate 3–5 actionable AEO levers the brand can pull.
+3. Score each lever on effort (1–5), impact (1–5), and confidence (0.0–1.0).
+4. Provide a short list of 2–3 priority actions.
+
+Return JSON ONLY in the required format.`
+  return [
+    { role: 'system' as const, content: system },
+    { role: 'user' as const, content: user },
+  ]
+}
+
+export async function evaluateBrandOpportunities(
+  brandName: string,
+  queryText: string,
+  baselineAnswer: string,
+  expandedQuestions: string[],
+  expandedAnswers: string[],
+  model = process.env.EVALUATOR_MODEL || 'openai/gpt-4o-mini'
+) {
+  const useMocks = process.env.USE_MOCKS === 'true'
+  if (useMocks) {
+    return {
+      brand_missing_signals: [
+        `Independent reviews/authority citations for ${brandName}`,
+        `Comparison table including ${brandName}`,
+      ],
+      actionable_levers: [
+        { lever: 'Authority', recommendation: `Add 3rd-party citations and medical review markup for ${brandName}`, effort_score: 2, impact_score: 5, confidence: 0.7 },
+        { lever: 'Comparison', recommendation: `Publish a comparison page listing ${brandName} vs top alternatives with entity markup`, effort_score: 3, impact_score: 4, confidence: 0.65 },
+      ],
+      priority_actions: [
+        `Add authority citations and schema for ${brandName}`,
+        `Publish comparison content including ${brandName}`,
+      ],
+    }
+  }
+  const messages = buildBrandOpportunityPrompt(brandName, queryText, baselineAnswer, expandedQuestions, expandedAnswers)
+  return await chatJson(model, messages, brandOpportunitySchema, { retries: 2 })
+}
+
 // Brand Delta Extraction
 const brandDeltaSchema = z.object({
   brand_missing_signals: z.array(z.string()).default([]),

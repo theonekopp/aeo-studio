@@ -81,6 +81,9 @@ Visit `/login` to save the API password, then use the Runs dashboard.
 - `GET /observations?run_id=...`
 - `GET /counterfactuals?observation_id=...`
 - `GET /brand-deltas?observation_id=...`
+- `GET /expanded-questions?observation_id=...`
+- `GET /expanded-answers?expanded_question_id=...`
+- `GET /brand-opportunities?observation_id=...`
 - `POST /jobs/capture-run` — run capture phase only
 - `POST /jobs/score-run` — run scoring phase only
 - `POST /jobs/counterfactual-run` — run counterfactuals phase only

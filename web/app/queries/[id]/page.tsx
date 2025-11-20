@@ -9,6 +9,8 @@ type Observation = { id: string; queryId: string; engineId: string; parsed_answe
 type Engine = { id: string; name: string }
 type Counterfactual = { lever: string; description: string; inclusion_after: boolean; effort_score: number; impact_score: number; confidence: number }
 type BrandDelta = { brand_missing_signals: string[]; actionable_levers: { lever: string; recommendation: string; effort_score: number; impact_score: number; confidence: number }[]; priority_actions: string[] }
+type ExpandedQuestion = { id: string; question_text: string }
+type ExpandedAnswer = { id: string; expandedQuestionId: string; parsed_answer?: string | null }
 
 export default function QueryDetail({ params }: { params: { id: string } }) {
   const [pwd, setPwd] = useState('')
@@ -18,6 +20,8 @@ export default function QueryDetail({ params }: { params: { id: string } }) {
   const [engines, setEngines] = useState<Record<string, Engine>>({})
   const [cfs, setCfs] = useState<Record<string, Counterfactual[]>>({})
   const [deltas, setDeltas] = useState<Record<string, BrandDelta[]>>({})
+  const [expandedQs, setExpandedQs] = useState<Record<string, ExpandedQuestion[]>>({})
+  const [expandedAs, setExpandedAs] = useState<Record<string, ExpandedAnswer[]>>({})
 
   useEffect(() => { setPwd(localStorage.getItem('aeo_pwd') || '') }, [])
 
@@ -47,11 +51,21 @@ export default function QueryDetail({ params }: { params: { id: string } }) {
         filtered.forEach(async (o: any) => {
           const [resCf, resDelta] = await Promise.all([
             fetch(base + `/counterfactuals?observation_id=${o.id}`, { headers: { Authorization: 'Basic ' + btoa('user:' + pwd) } }),
-            fetch(base + `/brand-deltas?observation_id=${o.id}`, { headers: { Authorization: 'Basic ' + btoa('user:' + pwd) } }),
+            fetch(base + `/brand-opportunities?observation_id=${o.id}`, { headers: { Authorization: 'Basic ' + btoa('user:' + pwd) } }),
           ])
           const [dataCf, dataDelta] = await Promise.all([resCf.json(), resDelta.json()])
           setCfs(prev => ({ ...prev, [o.id]: dataCf }))
           setDeltas(prev => ({ ...prev, [o.id]: dataDelta }))
+          // Expanded
+          const resQs = await fetch(base + `/expanded-questions?observation_id=${o.id}`, { headers: { Authorization: 'Basic ' + btoa('user:' + pwd) } })
+          const qs = await resQs.json()
+          setExpandedQs(prev => ({ ...prev, [o.id]: qs }))
+          // For each question, load answers
+          for (const q of qs as ExpandedQuestion[]) {
+            const resAns = await fetch(base + `/expanded-answers?expanded_question_id=${q.id}`, { headers: { Authorization: 'Basic ' + btoa('user:' + pwd) } })
+            const ans = await resAns.json()
+            setExpandedAs(prev => ({ ...prev, [q.id]: ans }))
+          }
         })
       })
   }, [pwd, runId, params.id])
@@ -81,6 +95,21 @@ export default function QueryDetail({ params }: { params: { id: string } }) {
               {r.cf.map((c, i) => (
                 <li key={i}>
                   <em>{c.lever}</em>: {c.description} — inclusion_after: {String(c.inclusion_after)} — impact {c.impact_score}/5, effort {c.effort_score}/5, conf {c.confidence}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p><strong>Surface-widening questions:</strong></p>
+            <ul>
+              {(expandedQs[observations.find(o=>o.engineId===r.engineId)?.id || ''] || []).map((q) => (
+                <li key={q.id}>
+                  {q.question_text}
+                  <div style={{ opacity: 0.8, marginTop: 4 }}>
+                    {(expandedAs[q.id] || []).map(a => (
+                      <div key={a.id} style={{ marginBottom: 6 }}>{a.parsed_answer || '(no parsed answer)'}</div>
+                    ))}
+                  </div>
                 </li>
               ))}
             </ul>

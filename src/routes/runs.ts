@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../db/client'
-import { captureRun, scoreRun, counterfactualRun, brandDeltaRun } from '../workers/runWorkers'
+import { captureRun, scoreRun, surfaceExpandRun, expandedAnswersRun, brandOpportunityRun } from '../workers/runWorkers'
 
 export const runsRouter = Router()
 
@@ -18,11 +18,12 @@ runsRouter.post('/start', async (req, res, next) => {
   try {
     const label = req.body?.label ?? new Date().toISOString()
     const run = await prisma.run.create({ data: { label } })
-    // For beta: run sequentially (no background queue)
+    // Sequential execution per ticket 11202025
     await captureRun(run.id)
     await scoreRun(run.id)
-    await counterfactualRun(run.id)
-    await brandDeltaRun(run.id)
+    await surfaceExpandRun(run.id)
+    await expandedAnswersRun(run.id)
+    await brandOpportunityRun(run.id)
     res.json({ id: run.id })
   } catch (e) { next(e) }
 })
