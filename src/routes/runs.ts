@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { prisma } from '../db/client'
-import { captureRun, scoreRun, surfaceExpandRun, expandedAnswersRun, brandOpportunityRun } from '../workers/runWorkers'
+import { runFullPipeline } from '../workers/runWorkers'
 
 export const runsRouter = Router()
 
@@ -18,13 +18,11 @@ runsRouter.post('/start', async (req, res, next) => {
   try {
     const label = req.body?.label ?? new Date().toISOString()
     const run = await prisma.run.create({ data: { label } })
-    // Sequential execution per ticket 11202025
-    await captureRun(run.id)
-    await scoreRun(run.id)
-    await surfaceExpandRun(run.id)
-    await expandedAnswersRun(run.id)
-    await brandOpportunityRun(run.id)
-    res.json({ id: run.id })
+    // Kick off pipeline in background to avoid HTTP timeouts
+    setImmediate(() => {
+      runFullPipeline(run.id).catch((e) => console.error('run pipeline error', e))
+    })
+    res.status(202).json({ id: run.id, status: 'started' })
   } catch (e) { next(e) }
 })
 

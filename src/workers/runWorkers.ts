@@ -185,6 +185,15 @@ export async function brandOpportunityRun(runId: string) {
   }
 }
 
+// Convenience: full pipeline runner (non-blocking for HTTP route)
+export async function runFullPipeline(runId: string) {
+  await captureRun(runId)
+  await scoreRun(runId)
+  await surfaceExpandRun(runId)
+  await expandedAnswersRun(runId)
+  await brandOpportunityRun(runId)
+}
+
 function selectModelForEngine(engineName: string): string {
   const useMocks = process.env.USE_MOCKS === 'true'
   if (useMocks) return 'mock-model'
