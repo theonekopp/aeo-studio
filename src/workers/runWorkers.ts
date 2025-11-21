@@ -6,7 +6,7 @@ import { chatText } from '../services/openrouter'
 const BRAND_NAMES = (process.env.BRAND_NAMES || '').split(',').map(s => s.trim()).filter(Boolean)
 
 export async function captureRun(runId: string) {
-  const queries = await prisma.query.findMany()
+  const queries = await prisma.query.findMany({ where: { is_active: true } })
   const engines = await prisma.engine.findMany()
   for (const q of queries) {
     for (const e of engines) {

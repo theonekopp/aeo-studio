@@ -213,20 +213,17 @@ function buildBrandOpportunityPrompt(
   const system = `You are an AEO (Answer Engine Optimization) diagnostic model.
 
 Your goal is to analyze:
-1. The original query and answer
-2. A set of expanded follow-up questions
-3. The answers to those questions
+1) The original query and answer
+2) A set of expanded follow-up questions
+3) The answers to those questions
 
-From these, determine:
-- Why the target brand was not included
-- What brand-specific signals are missing
-- What SEO/AEO-controllable changes would most increase inclusion in future answers
+Then return a single JSON object with brand-specific opportunities that are strictly SEO/AEO/content controllable.
 
-CRITICAL RULES:
-- Recommend ONLY levers that an SEO/AEO/content practitioner can control.
-- You may NOT propose product/ops changes (e.g., pricing, availability, new states, modalities, appointment times).
+Rules:
+- Recommend ONLY levers an SEO/AEO/content practitioner can control.
+- Do NOT propose product/ops changes (pricing, availability, new states, appointment times, modalities).
 - Focus on brand signals, content coverage, entity clarity, authority, comparisons, geo specificity, and UX clarity.
-- Be specific to the target brand.`
+- Output must be deterministic, valid JSON, no markdown, no commentary, no extra keys, no trailing commas.`
   const user = `Target brand: ${brandName}
 
 Original query: ${query}
@@ -240,13 +237,36 @@ ${expandedQuestions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 Expanded answers:
 ${expandedAnswers.map((a, i) => `Q${i + 1}: ${a}`).join('\n\n')}
 
-Using this full surface area:
-1. Identify the missing brand signals preventing inclusion.
-2. Generate 3–5 actionable AEO levers the brand can pull.
-3. Score each lever on effort (1–5), impact (1–5), and confidence (0.0–1.0).
-4. Provide a short list of 2–3 priority actions.
+Return JSON ONLY with EXACTLY these keys and shapes:
+{
+  "brand_missing_signals": string[],
+  "actionable_levers": [
+    {
+      "lever": "Content coverage" | "Entity clarity" | "Authority" | "Comparison" | "Geo specificity" | "UX clarity",
+      "recommendation": string, // brand-specific and actionable
+      "effort_score": 1 | 2 | 3 | 4 | 5,
+      "impact_score": 1 | 2 | 3 | 4 | 5,
+      "confidence": number // 0.0-1.0
+    }
+  ],
+  "priority_actions": string[]
+}
 
-Return JSON ONLY in the required format.`
+Example (structure only; adapt content to this case):
+{
+  "brand_missing_signals": [
+    "Independent reviews or citations for ${brandName}",
+    "Comparison table including ${brandName} vs. alternatives"
+  ],
+  "actionable_levers": [
+    { "lever": "Authority", "recommendation": "Add third-party citations and medical review markup for ${brandName}", "effort_score": 2, "impact_score": 5, "confidence": 0.8 },
+    { "lever": "Comparison", "recommendation": "Publish a comparison page including ${brandName} with entity markup", "effort_score": 3, "impact_score": 4, "confidence": 0.7 }
+  ],
+  "priority_actions": [
+    "Add authority citations and schema for ${brandName}",
+    "Publish comparison content including ${brandName}"
+  ]
+}`
   return [
     { role: 'system' as const, content: system },
     { role: 'user' as const, content: user },
@@ -279,7 +299,8 @@ export async function evaluateBrandOpportunities(
     }
   }
   const messages = buildBrandOpportunityPrompt(brandName, queryText, baselineAnswer, expandedQuestions, expandedAnswers)
-  return await chatJson(model, messages, brandOpportunitySchema, { retries: 2, responseType: 'object' })
+  // Do not force response_format; rely on explicit example and schema above
+  return await chatJson(model, messages, brandOpportunitySchema, { retries: 2 })
 }
 
 // Brand Delta Extraction

@@ -8,6 +8,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <h1 style={{ marginBottom: 8 }}>AEO Counterfactual Impact Lab</h1>
           <nav style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
             <a href="/">Runs</a>
+            <a href="/queries/manage">Queries</a>
             <a href="/login">Login</a>
           </nav>
           {children}
@@ -16,4 +17,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   )
 }
-

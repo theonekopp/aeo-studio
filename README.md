@@ -73,11 +73,12 @@ Visit `/login` to save the API password, then use the Runs dashboard.
 
 ### Endpoints (subset)
 
-- `POST /runs/start` — creates a run and executes capture → score → counterfactuals
+- `POST /runs/start` — creates a run and executes pipeline (capture → score → expansion → expanded answers → brand opportunities) for all active queries
 - `GET /runs/:id` — run info
 - `GET /runs/:id/summary` — matrix of `query × engine` scores
 - `GET /queries` — list queries
 - `POST /queries` — create query `{ text, funnel_stage, priority?, target_url? }`
+- `PATCH /queries/:id` — update `{ text?, funnel_stage?, priority?, target_url?, is_active? }`
 - `GET /observations?run_id=...`
 - `GET /counterfactuals?observation_id=...`
 - `GET /brand-deltas?observation_id=...`

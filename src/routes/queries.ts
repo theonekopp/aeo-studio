@@ -31,3 +31,24 @@ queriesRouter.get('/:id', async (req, res, next) => {
   } catch (e) { next(e) }
 })
 
+queriesRouter.patch('/:id', async (req, res, next) => {
+  try {
+    const id = req.params.id
+    const { text, funnel_stage, priority, target_url, is_active } = req.body || {}
+    const data: any = {}
+    if (typeof text === 'string' && text.trim()) {
+      data.text = text.trim()
+      data.slug = slugify(text, { lower: true, strict: true })
+    }
+    if (typeof funnel_stage === 'string') data.funnel_stage = funnel_stage
+    if (typeof priority === 'number') data.priority = priority
+    if (typeof target_url === 'string') data.target_url = target_url
+    if (typeof is_active === 'boolean') data.is_active = is_active
+    if (Object.keys(data).length === 0) return res.status(400).json({ error: 'no fields to update' })
+    const updated = await prisma.query.update({ where: { id }, data })
+    res.json(updated)
+  } catch (e: any) {
+    if (e?.code === 'P2002') return res.status(409).json({ error: 'slug_conflict' })
+    next(e)
+  }
+})

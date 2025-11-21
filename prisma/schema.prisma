@@ -20,6 +20,7 @@ model Query {
   funnel_stage FunnelStage
   priority     Int          @default(2)
   target_url   String?
+  is_active    Boolean      @default(true)
 
   observations Observation[]
 
