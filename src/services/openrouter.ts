@@ -10,7 +10,7 @@ export async function chatText(
 ): Promise<string> {
   const useMocks = process.env.USE_MOCKS === 'true'
   if (useMocks) {
-    return messages.map(m => m.content).join(' \n ').slice(0, opts?.max_tokens ?? 800) || 'mock-answer'
+    return messages.map(m => m.content).join(' \n ').slice(0, opts?.max_tokens ?? 3000) || 'mock-answer'
   }
   const apiKey = process.env.OPENROUTER_API_KEY
   if (!apiKey) throw new Error('OPENROUTER_API_KEY is not set')
@@ -24,8 +24,8 @@ export async function chatText(
     },
     body: JSON.stringify({
       model,
-      temperature: opts?.temperature ?? 0,
-      max_tokens: opts?.max_tokens ?? 700,
+      temperature: opts?.temperature ?? 0.5,
+      max_tokens: opts?.max_tokens ?? 3000,
       messages,
     }),
   })

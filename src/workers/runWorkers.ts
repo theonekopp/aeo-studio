@@ -14,7 +14,7 @@ export async function captureRun(runId: string) {
         // LLM capture via OpenRouter
         const model = selectModelForEngine(e.name)
         const messages = buildAnswerPrompt(q.text, e.name)
-        const answer = await chatText(model, messages, { temperature: 0.2, max_tokens: 600 })
+        const answer = await chatText(model, messages, { temperature: 0.5, max_tokens: 3000 })
         const raw_answer: any = { engine: e.name, model, content: answer }
         const parsed_answer: string | null = answer
         await prisma.observation.create({

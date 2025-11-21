@@ -208,7 +208,7 @@ export async function evaluateSurfaceQuestions(
     ]
   }
   const messages = buildSurfaceQuestionsPrompt(queryText, baselineAnswer)
-  return await chatJson(model, messages, surfaceQuestionsSchema, { retries: 2, responseType: 'json' })
+  return await chatJson(model, messages, surfaceQuestionsSchema, { retries: 2, responseType: 'json', temperature: 0.7, max_tokens: 3000 })
 }
 
 // Brand opportunity mining (Step 4)
@@ -321,7 +321,7 @@ export async function evaluateBrandOpportunities(
   }
   const messages = buildBrandOpportunityPrompt(brandName, queryText, baselineAnswer, expandedQuestions, expandedAnswers)
   // Do not force response_format; rely on explicit example and schema above
-  return await chatJson(model, messages, brandOpportunitySchema, { retries: 2 })
+  return await chatJson(model, messages, brandOpportunitySchema, { retries: 2, temperature: 0.5, max_tokens: 3000 })
 }
 
 // Brand Delta Extraction
@@ -393,5 +393,5 @@ export async function evaluateBrandDelta(
     }
   }
   const messages = buildBrandDeltaPrompt(brandName, queryText, baselineAnswer, cfItems)
-  return await chatJson(model, messages, brandDeltaSchema, { retries: 2, responseType: 'object' })
+  return await chatJson(model, messages, brandDeltaSchema, { retries: 2, responseType: 'object', temperature: 0.5, max_tokens: 3000 })
 }
