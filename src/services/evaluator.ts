@@ -69,9 +69,23 @@ const cfNormalizedSchema = cfAnySchema.transform((val) => {
 
 function buildBaselinePrompt(query: string, brandNames: string[], answerText: string) {
   const system = `You are an evaluator that scores brand inclusion in answer-engine outputs.
-Return ONLY valid JSON (no markdown, no commentary) with fields: presence_score, prominence_score, persuasion_score, summary, detected_brand_urls, detected_competitors.
-Scores are integers 0-3 with well-defined rubric. Be deterministic. No trailing commas.`
-  const user = `Query: ${query}\nBrands of interest: ${brandNames.join(', ')}\nAnswer text:\n${answerText}`
+Return ONLY valid JSON (no markdown, no commentary) with EXACTLY these keys:
+- presence_score (int 0-3)
+- prominence_score (int 0-3)
+- persuasion_score (int 0-3)
+- summary (string, one sentence)
+- detected_brand_urls (string[])
+- detected_competitors (string[])
+No extra keys. No trailing commas. Be deterministic.`
+  const example = `{
+  "presence_score": 1,
+  "prominence_score": 2,
+  "persuasion_score": 1,
+  "summary": "Brand is mentioned but not emphasized; persuasive evidence is limited.",
+  "detected_brand_urls": ["https://example.com/brand"],
+  "detected_competitors": ["Competitor A", "Competitor B"]
+}`
+  const user = `Query: ${query}\nBrands of interest: ${brandNames.join(', ')}\nAnswer text:\n${answerText}\n\nReturn JSON ONLY matching this example shape (values should reflect this case):\n${example}`
   return [
     { role: 'system' as const, content: system },
     { role: 'user' as const, content: user },
@@ -160,13 +174,20 @@ Given an original user query and its answer, your job is to generate 3–5 follo
 
 Your follow-up questions must:
 - Reveal latent attributes, criteria, and entities relevant to the original query
-- Expose ranking logic, quality signals, and provider comparisons
+- Expose ranking logic, quality signals, and entity comparisons
 - Surface entities an answer engine would consider authoritative
 - Remain within the same topic domain (no drifting)
 
 Do NOT generate questions that ask directly about the target brand.
-Do NOT generate yes/no questions.`
-  const user = `Original query:\n${query}\n\nAnswer engine response:\n${baselineAnswer}\n\nGenerate 3–5 follow-up questions.\nReturn ONLY a JSON list of strings.`
+Do NOT generate yes/no questions.
+
+Return ONLY JSON: a list of strings. No markdown, no commentary, no extra keys.`
+  const example = `[
+  "Which authority sources validate quality for this topic?",
+  "What criteria differentiate top providers in this space?",
+  "How do insurance coverage and location affect eligibility?"
+]`
+  const user = `Original query:\n${query}\n\nAnswer engine response:\n${baselineAnswer}\n\nGenerate 3–5 follow-up questions.\nReturn JSON ONLY like this example (content should reflect this case):\n${example}`
   return [
     { role: 'system' as const, content: system },
     { role: 'user' as const, content: user },
@@ -217,10 +238,10 @@ Your goal is to analyze:
 2) A set of expanded follow-up questions
 3) The answers to those questions
 
-Then return a single JSON object with brand-specific opportunities that are strictly SEO/AEO/content controllable.
+Then return a single JSON object with brand-specific opportunities that are strictly AEO/GEO/content controllable. The opportunities should be targeted at helping the target brand either appear in the original query (if it doesn't) or appear more prominently in the original query (if it already appears). Use your knowlege of how LLMs function and specifically how they function to combine web search results with LLM processing.
 
 Rules:
-- Recommend ONLY levers an SEO/AEO/content practitioner can control.
+- Recommend ONLY levers an AEO/GEO/content practitioner can control.
 - Do NOT propose product/ops changes (pricing, availability, new states, appointment times, modalities).
 - Focus on brand signals, content coverage, entity clarity, authority, comparisons, geo specificity, and UX clarity.
 - Output must be deterministic, valid JSON, no markdown, no commentary, no extra keys, no trailing commas.`
